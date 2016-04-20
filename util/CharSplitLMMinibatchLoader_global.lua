@@ -2,21 +2,21 @@
 -- Modified from https://github.com/oxford-cs-ml-2015/practical6
 -- the modification included support for train/val/test splits
 
-local CharSplitLMMinibatchLoader = {}
+ CharSplitLMMinibatchLoader = {}
 CharSplitLMMinibatchLoader.__index = CharSplitLMMinibatchLoader
 
 function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, split_fractions)
     -- split_fractions is e.g. {0.9, 0.05, 0.05}
 
-    local self = {}
+     self = {}
     setmetatable(self, CharSplitLMMinibatchLoader)
 
-    local input_file = path.join(data_dir, 'input.txt')
-    local vocab_file = path.join(data_dir, 'vocab.t7')
-    local tensor_file = path.join(data_dir, 'data.t7')
+     input_file = path.join(data_dir, 'input.txt')
+     vocab_file = path.join(data_dir, 'vocab.t7')
+     tensor_file = path.join(data_dir, 'data.t7')
 
     -- fetch file attributes to determine if we need to rerun preprocessing
-    local run_prepro = false
+     run_prepro = false
     if not (path.exists(vocab_file) or path.exists(tensor_file)) then
         -- prepro files do not exist, generate them
         print('vocab.t7 and data.t7 do not exist. Running preprocessing...')
@@ -24,9 +24,9 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     else
         -- check if the input file was modified since last time we 
         -- ran the prepro. if so, we have to rerun the preprocessing
-        local input_attr = lfs.attributes(input_file)
-        local vocab_attr = lfs.attributes(vocab_file)
-        local tensor_attr = lfs.attributes(tensor_file)
+         input_attr = lfs.attributes(input_file)
+         vocab_attr = lfs.attributes(vocab_file)
+         tensor_attr = lfs.attributes(tensor_file)
         if input_attr.modification > vocab_attr.modification or input_attr.modification > tensor_attr.modification then
             print('vocab.t7 or data.t7 detected as stale. Re-running preprocessing...')
             run_prepro = true
@@ -39,11 +39,11 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     end
 
     print('loading data files...')
-    local data = torch.load(tensor_file)
+     data = torch.load(tensor_file)
     self.vocab_mapping = torch.load(vocab_file)
 
     -- cut off the end so that it divides evenly
-    local len = data:size(1)
+     len = data:size(1)
     if len % (batch_size * seq_length) ~= 0 then
         print('cutting off end of data so that the batches/sequences divide evenly')
         data = data:sub(1, batch_size * seq_length 
@@ -61,7 +61,7 @@ function CharSplitLMMinibatchLoader.create(data_dir, batch_size, seq_length, spl
     self.batch_size = batch_size
     self.seq_length = seq_length
 
-    local ydata = data:clone()
+     ydata = data:clone()
     ydata:sub(1,-2):copy(data:sub(2,-1))
     ydata[-1] = data[1]
     self.x_batches = data:view(batch_size, -1):split(seq_length, 2)  -- #rows = #batches
@@ -106,7 +106,7 @@ end
 function CharSplitLMMinibatchLoader:next_batch(split_index)
     if self.split_sizes[split_index] == 0 then
         -- perform a check here to make sure the user isn't screwing something up
-        local split_names = {'train', 'val', 'test'}
+         split_names = {'train', 'val', 'test'}
         print('ERROR. Code requested a batch for split ' .. split_names[split_index] .. ', but this split has no data.')
         os.exit() -- crash violently
     end
@@ -116,7 +116,7 @@ function CharSplitLMMinibatchLoader:next_batch(split_index)
         self.batch_ix[split_index] = 1 -- cycle around to beginning
     end
     -- pull out the correct next batch
-    local ix = self.batch_ix[split_index]
+     ix = self.batch_ix[split_index]
     if split_index == 2 then ix = ix + self.ntrain end -- offset by train set size
     if split_index == 3 then ix = ix + self.ntrain + self.nval end -- offset by train + val
     return self.x_batches[ix], self.y_batches[ix]
@@ -124,21 +124,23 @@ end
 
 -- *** STATIC method ***
 function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, out_tensorfile)
-    local timer = torch.Timer()
+     in_textfile = "data/input.txt"
+     in_textfile = "data/redChamber/test.txt"
+     timer = torch.Timer()
 
     print('loading text file...')
-    local cache_len = 10000
-    local rawdata
-    local tot_len = 0
-    local f = assert(io.open(in_textfile, "r"))
+     cache_len = 10000
+     rawdata
+     tot_len = 0
+     f = assert(io.open(in_textfile, "r"))
 
     -- create vocabulary if it doesn't exist yet
     print('creating vocabulary mapping...')
     -- record all characters to a set
-    local unordered = {}
+     unordered = {}
     rawdata = f:read(cache_len)
     repeat
-	local i = 0
+	i = 0
         for char in rawdata:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
 	    i = i + 1
             if not unordered[char] then unordered[char] = true end
@@ -148,33 +150,30 @@ function CharSplitLMMinibatchLoader.text_to_tensor(in_textfile, out_vocabfile, o
     until not rawdata
     f:close()
     -- sort into a table (i.e. keys become 1..N)
-    local ordered = {}
+     ordered = {}
     for char in pairs(unordered) do ordered[#ordered + 1] = char end
     table.sort(ordered)
     -- invert `ordered` to create the char->int mapping
-    local vocab_mapping = {}
+     vocab_mapping = {}
     for i, char in ipairs(ordered) do
         vocab_mapping[char] = i
     end
     -- construct a tensor with all the data
     print('putting data into tensor...')
-    local data = torch.IntTensor(tot_len) -- store it into 1D first, then rearrange
+     data = torch.ByteTensor(tot_len) -- store it into 1D first, then rearrange
     f = assert(io.open(in_textfile, "r"))
-    local currlen = 0
+     currlen = 0
     rawdata = f:read(cache_len)
     repeat
-        local i = 0
+	i = 0
         for char in rawdata:gmatch("[%z\1-\127\194-\244][\128-\191]*")  do
 	    i = i + 1
-            data[currlen+i] = vocab_mapping[char] 
+            data[currlen+i] = vocab_mapping[char] -- lua has no string indexing using []
         end
-        currlen = currlen + i
+	currlen = currlen + i
         rawdata = f:read(cache_len)
     until not rawdata
     f:close()
-    print("vocab_mapping")
-    print(vocab_mapping)
-    print("tensor")
 
     -- save output preprocessed files
     print('saving ' .. out_vocabfile)
